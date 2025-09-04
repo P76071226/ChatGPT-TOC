@@ -62,7 +62,7 @@ This extension solves those by:
 
 ## 📸 Screenshots
 
-*(Add some screenshots here showing the sidebar in action.)*
+![Screenshot](./images/Screenshot.png)
 
 ---
 
