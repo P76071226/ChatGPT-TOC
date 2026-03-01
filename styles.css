@@ -36,6 +36,45 @@
 
 #cgpt-toc .cgpt-actions { display: flex; gap: 8px; }
 
+#cgpt-toc .cgpt-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+#cgpt-toc .cgpt-filter-input {
+  flex: 1 1 100%;
+  min-width: 0;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(255,255,255,0.95);
+  color: inherit;
+  padding: 6px 8px;
+  outline: none;
+}
+
+#cgpt-toc .cgpt-filter-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+}
+
+#cgpt-toc .cgpt-toggle-pill {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  background: rgba(100,116,139,0.08);
+}
+
+#cgpt-toc .cgpt-toggle-pill input { margin: 0; }
+
 #cgpt-toc button {
   border: 1px solid rgba(0,0,0,0.08);
   background: #64748B;
@@ -49,6 +88,12 @@
 
 #cgpt-toc .cgpt-list { max-height: 56vh; overflow: auto; }
 
+#cgpt-toc .cgpt-item-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
 #cgpt-toc .cgpt-item {
   display: block;
   width: 100%;
@@ -59,15 +104,47 @@
   cursor: pointer;
   font-size: 13px;
   line-height: 1.4;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
+#cgpt-toc .cgpt-pin {
+  border: none;
+  border-left: 1px solid rgba(0,0,0,0.06);
+  border-radius: 0;
+  background: transparent;
+  color: #64748B;
+  width: 34px;
+  padding: 0;
+}
+
+#cgpt-toc .cgpt-pin.is-pinned { color: #f59e0b; }
+
 #cgpt-toc .cgpt-item:hover { background: #f7f7f7; }
+
+#cgpt-toc .cgpt-pin:hover { background: #f7f7f7; }
 
 #cgpt-toc .cgpt-empty { padding: 12px; font-size: 12px; color: #666; }
 
 #cgpt-toc.minimized { width: auto; max-height: none; }
-#cgpt-toc.minimized .cgpt-list, #cgpt-toc.minimized .cgpt-actions .btn-export { display: none; }
+#cgpt-toc.minimized .cgpt-filter-row,
+#cgpt-toc.minimized .cgpt-list,
+#cgpt-toc.minimized .cgpt-actions .btn-export { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  #cgpt-toc .cgpt-filter-input {
+    background: rgba(18,18,18,0.95);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  #cgpt-toc .cgpt-toggle-pill {
+    background: rgba(100,116,139,0.2);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  #cgpt-toc .cgpt-item-row,
+  #cgpt-toc .cgpt-pin {
+    border-color: rgba(255,255,255,0.12);
+  }
+}
 
 [data-cgpt-anchor].cgpt-highlight {
   outline: 3px solid rgba(33, 150, 243, 0.65);
