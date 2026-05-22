@@ -6,6 +6,9 @@
     sidebarMode: 'expanded',
     sidebarPosition: 'right',
     appearance: 'system',
+    questionSort: 'oldest',
+    listFontSize: 'medium',
+    backgroundOpacity: 100,
   };
 
   let lastCount = -1;
@@ -56,12 +59,21 @@
   }
 
   function normalizeSettings(nextSettings) {
+    const backgroundOpacity = Number(nextSettings.backgroundOpacity);
+
     return {
       sidebarMode: nextSettings.sidebarMode === 'tab' ? 'tab' : 'expanded',
       sidebarPosition: nextSettings.sidebarPosition === 'left' ? 'left' : 'right',
       appearance: ['light', 'dark', 'system'].includes(nextSettings.appearance)
         ? nextSettings.appearance
         : 'system',
+      questionSort: nextSettings.questionSort === 'newest' ? 'newest' : 'oldest',
+      listFontSize: ['small', 'medium', 'large'].includes(nextSettings.listFontSize)
+        ? nextSettings.listFontSize
+        : 'medium',
+      backgroundOpacity: Number.isFinite(backgroundOpacity)
+        ? Math.min(Math.max(backgroundOpacity, 30), 100)
+        : 100,
     };
   }
 
@@ -75,6 +87,10 @@
     sidebar.classList.toggle('cgpt-theme-light', settings.appearance === 'light');
     sidebar.classList.toggle('cgpt-theme-dark', settings.appearance === 'dark');
     sidebar.classList.toggle('cgpt-theme-system', settings.appearance === 'system');
+    sidebar.classList.toggle('cgpt-font-small', settings.listFontSize === 'small');
+    sidebar.classList.toggle('cgpt-font-medium', settings.listFontSize === 'medium');
+    sidebar.classList.toggle('cgpt-font-large', settings.listFontSize === 'large');
+    sidebar.style.setProperty('--cgpt-bg-alpha', String(settings.backgroundOpacity / 100));
   }
 
   function loadSettings(callback) {
@@ -148,16 +164,17 @@
     const sidebar = ensureSidebar();
     const list = sidebar.querySelector('.cgpt-list');
     const countEl = sidebar.querySelector('#cgpt-count');
+    const sortedItems = settings.questionSort === 'newest' ? [...items].reverse() : items;
 
     list.innerHTML = '';
 
-    countEl.textContent = items.length ? `(${items.length})` : '(0)';
-    if (!items.length) {
+    countEl.textContent = sortedItems.length ? `(${sortedItems.length})` : '(0)';
+    if (!sortedItems.length) {
       list.innerHTML = '<div class="cgpt-empty">尚未偵測到你的問題（使用者訊息）。</div>';
       return;
     }
 
-    items.forEach((item, i) => {
+    sortedItems.forEach((item, i) => {
       const btn = document.createElement('button');
       btn.className = 'cgpt-item';
       btn.setAttribute('role', 'listitem');

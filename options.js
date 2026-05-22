@@ -2,10 +2,15 @@ const DEFAULT_OPTIONS = {
   sidebarMode: 'expanded',
   sidebarPosition: 'right',
   appearance: 'system',
+  questionSort: 'oldest',
+  listFontSize: 'medium',
+  backgroundOpacity: 100,
 };
 
 const OPTION_KEYS = Object.keys(DEFAULT_OPTIONS);
 const statusEl = document.querySelector('.save-status');
+const backgroundOpacityInput = document.querySelector('input[name="backgroundOpacity"]');
+const backgroundOpacityValue = document.querySelector('#background-opacity-value');
 let statusTimer = null;
 
 function setStatus(message) {
@@ -18,10 +23,19 @@ function setStatus(message) {
 
 function setCheckedValues(options) {
   OPTION_KEYS.forEach((key) => {
+    if (key === 'backgroundOpacity') return;
     const value = options[key] || DEFAULT_OPTIONS[key];
     const input = document.querySelector(`input[name="${key}"][value="${value}"]`);
     if (input) input.checked = true;
   });
+}
+
+function setBackgroundOpacityValue(value) {
+  const numericValue = Number(value);
+  const safeValue = Number.isFinite(numericValue) ? numericValue : DEFAULT_OPTIONS.backgroundOpacity;
+
+  backgroundOpacityInput.value = String(safeValue);
+  backgroundOpacityValue.textContent = `${safeValue}%`;
 }
 
 function saveOption(key, value) {
@@ -32,6 +46,15 @@ function saveOption(key, value) {
 
 chrome.storage.sync.get(DEFAULT_OPTIONS, (options) => {
   setCheckedValues(options);
+  setBackgroundOpacityValue(options.backgroundOpacity);
+});
+
+document.addEventListener('input', (event) => {
+  const target = event.target;
+  if (target.name !== 'backgroundOpacity') return;
+
+  setBackgroundOpacityValue(target.value);
+  saveOption(target.name, Number(target.value));
 });
 
 document.addEventListener('change', (event) => {

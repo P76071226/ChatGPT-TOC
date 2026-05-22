@@ -53,6 +53,50 @@
         </label>
       </section>
 
+      <section class="setting-group" aria-labelledby="question-sort-title">
+        <h2 id="question-sort-title">問題排序</h2>
+        <label>
+          <input type="radio" name="questionSort" value="oldest">
+          <span>由舊到新</span>
+        </label>
+        <label>
+          <input type="radio" name="questionSort" value="newest">
+          <span>由新到舊</span>
+        </label>
+      </section>
+
+      <section class="setting-group" aria-labelledby="font-size-title">
+        <h2 id="font-size-title">字體大小</h2>
+        <label>
+          <input type="radio" name="listFontSize" value="small">
+          <span>小</span>
+        </label>
+        <label>
+          <input type="radio" name="listFontSize" value="medium">
+          <span>中</span>
+        </label>
+        <label>
+          <input type="radio" name="listFontSize" value="large">
+          <span>大</span>
+        </label>
+      </section>
+
+      <section class="setting-group" aria-labelledby="background-opacity-title">
+        <div class="setting-heading-row">
+          <h2 id="background-opacity-title">背景透明度</h2>
+          <output id="background-opacity-value" for="background-opacity">100%</output>
+        </div>
+        <input
+          id="background-opacity"
+          class="range-input"
+          type="range"
+          name="backgroundOpacity"
+          min="30"
+          max="100"
+          step="5"
+        >
+      </section>
+
       <p class="save-status" role="status" aria-live="polite"></p>
     </main>
 
