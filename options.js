@@ -1,6 +1,5 @@
 const DEFAULT_OPTIONS = {
   sidebarMode: 'expanded',
-  sidebarPosition: 'right',
   appearance: 'system',
 };
 

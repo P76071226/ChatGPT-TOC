@@ -4,8 +4,9 @@
   const CHAT_SELECTOR = '.flex.h-full.flex-col.overflow-y-auto';
   const DEFAULT_SETTINGS = {
     sidebarMode: 'expanded',
-    sidebarPosition: 'right',
     appearance: 'system',
+    sidebarX: null,
+    sidebarY: null,
   };
 
   let lastCount = -1;
@@ -32,7 +33,6 @@
         <h1>問題清單（本頁） <small id="cgpt-count" style="opacity:.7;font-weight:500"></small></h1>
         <div class="cgpt-actions">
           <button class="btn-refresh" title="重新掃描">↻</button>
-          <button class="btn-export" title="匯出 Markdown">⤓</button>
           <button class="btn-toggle" title="收合/展開">—</button>
         </div>
       </header>
@@ -45,7 +45,7 @@
       log('Manual refresh clicked');
       rebuild(true);
     });
-    el.querySelector('.btn-export').addEventListener('click', exportMarkdown);
+    initSidebarDrag(el);
     applySettingsToSidebar(el);
     return el;
   }
@@ -56,12 +56,16 @@
   }
 
   function normalizeSettings(nextSettings) {
+    const sidebarX = Number.isFinite(nextSettings.sidebarX) ? nextSettings.sidebarX : null;
+    const sidebarY = Number.isFinite(nextSettings.sidebarY) ? nextSettings.sidebarY : null;
+
     return {
       sidebarMode: nextSettings.sidebarMode === 'tab' ? 'tab' : 'expanded',
-      sidebarPosition: nextSettings.sidebarPosition === 'left' ? 'left' : 'right',
       appearance: ['light', 'dark', 'system'].includes(nextSettings.appearance)
         ? nextSettings.appearance
         : 'system',
+      sidebarX,
+      sidebarY,
     };
   }
 
@@ -70,11 +74,87 @@
 
     sidebar.classList.toggle('cgpt-mode-tab', settings.sidebarMode === 'tab');
     sidebar.classList.toggle('cgpt-mode-expanded', settings.sidebarMode === 'expanded');
-    sidebar.classList.toggle('cgpt-position-left', settings.sidebarPosition === 'left');
-    sidebar.classList.toggle('cgpt-position-right', settings.sidebarPosition === 'right');
     sidebar.classList.toggle('cgpt-theme-light', settings.appearance === 'light');
     sidebar.classList.toggle('cgpt-theme-dark', settings.appearance === 'dark');
     sidebar.classList.toggle('cgpt-theme-system', settings.appearance === 'system');
+    applyStoredPosition(sidebar);
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function getClampedSidebarPosition(sidebar, x, y) {
+    const rect = sidebar.getBoundingClientRect();
+    const maxX = Math.max(0, window.innerWidth - rect.width - 8);
+    const maxY = Math.max(0, window.innerHeight - rect.height - 8);
+
+    return {
+      x: clamp(x, 8, maxX),
+      y: clamp(y, 8, maxY),
+    };
+  }
+
+  function setSidebarPosition(sidebar, x, y) {
+    sidebar.style.left = `${x}px`;
+    sidebar.style.top = `${y}px`;
+    sidebar.style.right = 'auto';
+  }
+
+  function applyStoredPosition(sidebar) {
+    if (!Number.isFinite(settings.sidebarX) || !Number.isFinite(settings.sidebarY)) return;
+
+    const position = getClampedSidebarPosition(sidebar, settings.sidebarX, settings.sidebarY);
+    setSidebarPosition(sidebar, position.x, position.y);
+  }
+
+  function saveSidebarPosition(x, y) {
+    settings = { ...settings, sidebarX: x, sidebarY: y };
+
+    const storage = getStorageSync();
+    if (storage) storage.set({ sidebarX: x, sidebarY: y });
+  }
+
+  function initSidebarDrag(sidebar) {
+    const header = sidebar.querySelector('header');
+    if (!header) return;
+
+    header.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      if (event.target.closest('button')) return;
+
+      const rect = sidebar.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+      sidebar.classList.add('cgpt-dragging');
+      header.setPointerCapture(event.pointerId);
+
+      const onPointerMove = (moveEvent) => {
+        const position = getClampedSidebarPosition(
+          sidebar,
+          moveEvent.clientX - offsetX,
+          moveEvent.clientY - offsetY
+        );
+        setSidebarPosition(sidebar, position.x, position.y);
+      };
+
+      const onPointerUp = (upEvent) => {
+        header.releasePointerCapture(upEvent.pointerId);
+        header.removeEventListener('pointermove', onPointerMove);
+        header.removeEventListener('pointerup', onPointerUp);
+        header.removeEventListener('pointercancel', onPointerUp);
+        sidebar.classList.remove('cgpt-dragging');
+
+        const finalRect = sidebar.getBoundingClientRect();
+        const position = getClampedSidebarPosition(sidebar, finalRect.left, finalRect.top);
+        setSidebarPosition(sidebar, position.x, position.y);
+        saveSidebarPosition(position.x, position.y);
+      };
+
+      header.addEventListener('pointermove', onPointerMove);
+      header.addEventListener('pointerup', onPointerUp);
+      header.addEventListener('pointercancel', onPointerUp);
+    });
   }
 
   function loadSettings(callback) {
@@ -180,17 +260,6 @@
       });
       list.appendChild(btn);
     });
-  }
-
-  function exportMarkdown() {
-    const nodes = queryUserMessages();
-    const items = nodes.map(normalizeItem);
-    const lines = items.map((it, i) => `${i + 1}. ${it.label}`);
-    const md = `# ChatGPT 問題清單\\n\\n${lines.join('\\n')}`;
-    navigator.clipboard.writeText(md).then(
-      () => alert('已複製 Markdown 到剪貼簿！'),
-      () => prompt('複製以下內容：', md)
-    );
   }
 
   function rebuild(force=false) {

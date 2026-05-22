@@ -14,22 +14,20 @@
   overflow: hidden;
 }
 
-#cgpt-toc.cgpt-position-left {
-  left: 12px;
-  right: auto;
-}
-
-#cgpt-toc.cgpt-position-right {
-  right: 12px;
-  left: auto;
-}
-
 #cgpt-toc header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
   border-bottom: 1px solid rgba(0,0,0,0.06);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+#cgpt-toc.cgpt-dragging {
+  opacity: 0.92;
+  box-shadow: 0 16px 42px rgba(0,0,0,0.14);
 }
 
 #cgpt-toc h1 { font-size: 14px; margin: 0; }
@@ -68,7 +66,7 @@
 #cgpt-toc .cgpt-empty { padding: 12px; font-size: 12px; color: #666; }
 
 #cgpt-toc.minimized { width: auto; max-height: none; }
-#cgpt-toc.minimized .cgpt-list, #cgpt-toc.minimized .cgpt-actions .btn-export { display: none; }
+#cgpt-toc.minimized .cgpt-list { display: none; }
 
 #cgpt-toc.cgpt-mode-tab {
   width: 44px;
