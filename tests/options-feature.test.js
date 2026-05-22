@@ -32,6 +32,7 @@ assert.match(optionsJs, /backgroundOpacity/, 'options script should manage backg
 
 const contentJs = read('content.js');
 assert.match(contentJs, /chrome\.storage\.sync/, 'content script should read persisted settings');
+assert.match(contentJs, /chrome\.storage\.local/, 'content script should cache conversation indexes in local storage');
 assert.match(contentJs, /sidebarMode/, 'content script should apply sidebar display mode');
 assert.match(contentJs, /sidebarPosition/, 'content script should apply sidebar position');
 assert.match(contentJs, /appearance/, 'content script should apply appearance');
@@ -39,6 +40,12 @@ assert.match(contentJs, /questionSort/, 'content script should apply question so
 assert.match(contentJs, /listFontSize/, 'content script should apply list font size');
 assert.match(contentJs, /backgroundOpacity/, 'content script should apply background opacity');
 assert.match(contentJs, /--cgpt-bg-alpha/, 'content script should set sidebar background alpha variable');
+assert.match(contentJs, /MAX_ITEMS_PER_CONVERSATION = 300/, 'cache should cap items per conversation');
+assert.match(contentJs, /MAX_CACHED_CONVERSATIONS = 50/, 'cache should cap cached conversations');
+assert.match(contentJs, /CACHE_MAX_AGE_MS/, 'cache should expire old conversation indexes');
+assert.match(contentJs, /getConversationKey/, 'content script should scope cache by conversation');
+assert.match(contentJs, /mergeCachedItems/, 'content script should merge live DOM items into cache');
+assert.match(contentJs, /getNodeSignature/, 'content script should detect lazy-loaded content changes even when DOM count is unchanged');
 
 const stylesCss = read('styles.css');
 assert.match(stylesCss, /cgpt-position-left/, 'styles should support left sidebar position');

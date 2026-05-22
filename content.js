@@ -2,6 +2,10 @@
   const SIDEBAR_ID = 'cgpt-toc';
   const ANCHOR_ATTR = 'data-cgpt-anchor';
   const CHAT_SELECTOR = '.flex.h-full.flex-col.overflow-y-auto';
+  const CACHE_KEY = 'cgptConversationIndexCache';
+  const MAX_ITEMS_PER_CONVERSATION = 300;
+  const MAX_CACHED_CONVERSATIONS = 50;
+  const CACHE_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
   const DEFAULT_SETTINGS = {
     sidebarMode: 'expanded',
     sidebarPosition: 'right',
@@ -11,10 +15,12 @@
     backgroundOpacity: 100,
   };
 
-  let lastCount = -1;
+  let lastSignature = '';
   let pollTimer = null;
   let urlWatchTimer = null;
   let settings = { ...DEFAULT_SETTINGS };
+  let conversationCache = {};
+  let activeConversationKey = '';
 
   function log(...args) {
     try { console.debug('[ChatGPT-TOC]', ...args); } catch (e) {}
@@ -56,6 +62,11 @@
   function getStorageSync() {
     if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.sync) return null;
     return chrome.storage.sync;
+  }
+
+  function getStorageLocal() {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return null;
+    return chrome.storage.local;
   }
 
   function normalizeSettings(nextSettings) {
@@ -128,6 +139,88 @@
     return document.querySelector(CHAT_SELECTOR) || window;
   }
 
+  function getConversationKey() {
+    const match = location.pathname.match(/\/c\/([^/?#]+)/);
+    if (match) return `conversation:${match[1]}`;
+    return `page:${location.pathname || 'unknown'}`;
+  }
+
+  function loadConversationCache(callback) {
+    const storage = getStorageLocal();
+    activeConversationKey = getConversationKey();
+
+    if (!storage) {
+      conversationCache = {};
+      callback();
+      return;
+    }
+
+    storage.get({ [CACHE_KEY]: {} }, (result) => {
+      conversationCache = cleanupConversationCache(result[CACHE_KEY] || {});
+      storage.set({ [CACHE_KEY]: conversationCache }, callback);
+    });
+  }
+
+  function cleanupConversationCache(cache) {
+    const now = Date.now();
+    const entries = Object.entries(cache)
+      .filter(([, conversation]) => now - (conversation.lastSeenAt || 0) <= CACHE_MAX_AGE_MS)
+      .sort(([, a], [, b]) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0))
+      .slice(0, MAX_CACHED_CONVERSATIONS);
+
+    return Object.fromEntries(entries);
+  }
+
+  function persistConversationCache() {
+    const storage = getStorageLocal();
+    if (!storage) return;
+
+    conversationCache = cleanupConversationCache(conversationCache);
+    storage.set({ [CACHE_KEY]: conversationCache });
+  }
+
+  function getCachedItems() {
+    const conversation = conversationCache[activeConversationKey];
+    return conversation && Array.isArray(conversation.items) ? conversation.items : [];
+  }
+
+  function getItemCacheKey(item) {
+    return item.messageId || item.id || item.label;
+  }
+
+  function mergeCachedItems(liveItems) {
+    const now = Date.now();
+    const existingItems = getCachedItems();
+    const itemMap = new Map();
+
+    existingItems.forEach((item) => {
+      itemMap.set(getItemCacheKey(item), item);
+    });
+
+    liveItems.forEach((item) => {
+      const cacheKey = getItemCacheKey(item);
+      const existing = itemMap.get(cacheKey);
+      itemMap.set(cacheKey, {
+        ...existing,
+        ...item,
+        firstSeenAt: existing ? existing.firstSeenAt : now,
+        lastSeenAt: now,
+      });
+    });
+
+    const items = Array.from(itemMap.values())
+      .sort((a, b) => (a.firstSeenAt || 0) - (b.firstSeenAt || 0))
+      .slice(-MAX_ITEMS_PER_CONVERSATION);
+
+    conversationCache[activeConversationKey] = {
+      items,
+      lastSeenAt: now,
+    };
+    persistConversationCache();
+
+    return items;
+  }
+
   function queryUserMessages() {
     const selectors = [
       '[data-message-author-role="user"]',
@@ -157,7 +250,21 @@
 
     const msgId = container.getAttribute('data-message-id') || '';
 
-    return { id: container.id, label: label || `問題 #${index + 1}`, messageId: msgId };
+    return {
+      id: container.id,
+      label: label || `問題 #${index + 1}`,
+      messageId: msgId,
+      firstSeenAt: Date.now() + index,
+      lastSeenAt: Date.now(),
+    };
+  }
+
+  function getNodeSignature(nodes) {
+    return nodes.map((node) => {
+      const msgId = node.getAttribute('data-message-id') || '';
+      const text = (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
+      return `${msgId}:${text}`;
+    }).join('|');
   }
 
   function buildList(items) {
@@ -181,7 +288,10 @@
       btn.textContent = `${i + 1}. ${item.label}`;
       btn.addEventListener('click', () => {
         // 最小可用：直接使用 DOM id 重新查詢當前節點
-        const nodeNow = document.getElementById(item.id);
+        const candidateNode = document.getElementById(item.id);
+        const nodeNow = candidateNode && (!item.messageId || candidateNode.getAttribute('data-message-id') === item.messageId)
+          ? candidateNode
+          : null;
         if (nodeNow) {
           nodeNow.scrollIntoView({ behavior: 'smooth', block: 'center' });
           nodeNow.classList.add('cgpt-highlight');
@@ -200,8 +310,7 @@
   }
 
   function exportMarkdown() {
-    const nodes = queryUserMessages();
-    const items = nodes.map(normalizeItem);
+    const items = getCachedItems();
     const lines = items.map((it, i) => `${i + 1}. ${it.label}`);
     const md = `# ChatGPT 問題清單\\n\\n${lines.join('\\n')}`;
     navigator.clipboard.writeText(md).then(
@@ -212,12 +321,14 @@
 
   function rebuild(force=false) {
     const nodes = queryUserMessages();
-    if (!force && nodes.length === lastCount) {
+    const signature = getNodeSignature(nodes);
+    if (!force && signature === lastSignature) {
       return; // 無變化時不重建
     }
-    lastCount = nodes.length;
-    const items = nodes.map(normalizeItem);
-    log('Rebuild list. Count =', nodes.length);
+    lastSignature = signature;
+    const liveItems = nodes.map(normalizeItem);
+    const items = mergeCachedItems(liveItems);
+    log('Rebuild list. DOM count =', nodes.length, 'Cached count =', items.length);
     buildList(items);
   }
 
@@ -289,7 +400,9 @@
 
   function boot(fromUrlChange=false) {
     ensureSidebar();
-    loadSettings(() => rebuild(true));
+    loadSettings(() => {
+      loadConversationCache(() => rebuild(true));
+    });
     if (!fromUrlChange) {
       watchSettings();
       observeMutations();
