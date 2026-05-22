@@ -14,13 +14,14 @@
   overflow: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  #cgpt-toc {
-    background: #1e1e1e;
-    color: #eee;
-  }
-  #cgpt-toc .cgpt-item { color: #ddd; }
-  #cgpt-toc .cgpt-item:hover { background: #333; }
+#cgpt-toc.cgpt-position-left {
+  left: 12px;
+  right: auto;
+}
+
+#cgpt-toc.cgpt-position-right {
+  right: 12px;
+  left: auto;
 }
 
 #cgpt-toc header {
@@ -68,6 +69,86 @@
 
 #cgpt-toc.minimized { width: auto; max-height: none; }
 #cgpt-toc.minimized .cgpt-list, #cgpt-toc.minimized .cgpt-actions .btn-export { display: none; }
+
+#cgpt-toc.cgpt-mode-tab {
+  width: 44px;
+  min-height: 128px;
+  max-height: none;
+  transition: width 0.18s ease, box-shadow 0.18s ease;
+}
+
+#cgpt-toc.cgpt-mode-tab header {
+  min-height: 128px;
+  padding: 10px 8px;
+  justify-content: center;
+}
+
+#cgpt-toc.cgpt-mode-tab h1 {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: nowrap;
+}
+
+#cgpt-toc.cgpt-mode-tab h1 small,
+#cgpt-toc.cgpt-mode-tab .cgpt-actions,
+#cgpt-toc.cgpt-mode-tab .cgpt-list {
+  display: none;
+}
+
+#cgpt-toc.cgpt-mode-tab:hover,
+#cgpt-toc.cgpt-mode-tab:focus-within {
+  width: 300px;
+  max-height: 70vh;
+}
+
+#cgpt-toc.cgpt-mode-tab:hover header,
+#cgpt-toc.cgpt-mode-tab:focus-within header {
+  min-height: auto;
+  padding: 10px 12px;
+  justify-content: space-between;
+}
+
+#cgpt-toc.cgpt-mode-tab:hover h1,
+#cgpt-toc.cgpt-mode-tab:focus-within h1 {
+  writing-mode: horizontal-tb;
+}
+
+#cgpt-toc.cgpt-mode-tab:hover h1 small,
+#cgpt-toc.cgpt-mode-tab:focus-within h1 small {
+  display: inline;
+}
+
+#cgpt-toc.cgpt-mode-tab:hover .cgpt-actions,
+#cgpt-toc.cgpt-mode-tab:focus-within .cgpt-actions {
+  display: flex;
+}
+
+#cgpt-toc.cgpt-mode-tab:hover .cgpt-list,
+#cgpt-toc.cgpt-mode-tab:focus-within .cgpt-list {
+  display: block;
+}
+
+#cgpt-toc.cgpt-theme-dark {
+  background: #1e1e1e;
+  color: #eee;
+}
+
+#cgpt-toc.cgpt-theme-dark .cgpt-item { color: #ddd; }
+#cgpt-toc.cgpt-theme-dark .cgpt-item:hover { background: #333; }
+
+#cgpt-toc.cgpt-theme-light {
+  background: #ffffff;
+  color: #000;
+}
+
+@media (prefers-color-scheme: dark) {
+  #cgpt-toc.cgpt-theme-system {
+    background: #1e1e1e;
+    color: #eee;
+  }
+  #cgpt-toc.cgpt-theme-system .cgpt-item { color: #ddd; }
+  #cgpt-toc.cgpt-theme-system .cgpt-item:hover { background: #333; }
+}
 
 [data-cgpt-anchor].cgpt-highlight {
   outline: 3px solid rgba(33, 150, 243, 0.65);

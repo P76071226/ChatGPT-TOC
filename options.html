@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ChatGPT TOC 設定</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="options-shell">
+      <header class="options-header">
+        <h1>ChatGPT TOC</h1>
+        <p>設定問題清單的顯示方式</p>
+      </header>
+
+      <section class="setting-group" aria-labelledby="sidebar-mode-title">
+        <h2 id="sidebar-mode-title">Sidebar 顯示模式</h2>
+        <label>
+          <input type="radio" name="sidebarMode" value="expanded">
+          <span>固定展開</span>
+        </label>
+        <label>
+          <input type="radio" name="sidebarMode" value="tab">
+          <span>小標籤模式</span>
+        </label>
+      </section>
+
+      <section class="setting-group" aria-labelledby="sidebar-position-title">
+        <h2 id="sidebar-position-title">Sidebar 位置</h2>
+        <label>
+          <input type="radio" name="sidebarPosition" value="right">
+          <span>右側</span>
+        </label>
+        <label>
+          <input type="radio" name="sidebarPosition" value="left">
+          <span>左側</span>
+        </label>
+      </section>
+
+      <section class="setting-group" aria-labelledby="appearance-title">
+        <h2 id="appearance-title">外觀</h2>
+        <label>
+          <input type="radio" name="appearance" value="system">
+          <span>跟隨系統</span>
+        </label>
+        <label>
+          <input type="radio" name="appearance" value="light">
+          <span>淺色</span>
+        </label>
+        <label>
+          <input type="radio" name="appearance" value="dark">
+          <span>深色</span>
+        </label>
+      </section>
+
+      <p class="save-status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>

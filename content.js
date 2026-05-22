@@ -2,10 +2,16 @@
   const SIDEBAR_ID = 'cgpt-toc';
   const ANCHOR_ATTR = 'data-cgpt-anchor';
   const CHAT_SELECTOR = '.flex.h-full.flex-col.overflow-y-auto';
+  const DEFAULT_SETTINGS = {
+    sidebarMode: 'expanded',
+    sidebarPosition: 'right',
+    appearance: 'system',
+  };
 
   let lastCount = -1;
   let pollTimer = null;
   let urlWatchTimer = null;
+  let settings = { ...DEFAULT_SETTINGS };
 
   function log(...args) {
     try { console.debug('[ChatGPT-TOC]', ...args); } catch (e) {}
@@ -13,10 +19,14 @@
 
   function ensureSidebar() {
     let el = document.getElementById(SIDEBAR_ID);
-    if (el) return el;
+    if (el) {
+      applySettingsToSidebar(el);
+      return el;
+    }
 
     el = document.createElement('aside');
     el.id = SIDEBAR_ID;
+    el.setAttribute('aria-label', 'ChatGPT 問題清單');
     el.innerHTML = `
       <header>
         <h1>問題清單（本頁） <small id="cgpt-count" style="opacity:.7;font-weight:500"></small></h1>
@@ -36,7 +46,66 @@
       rebuild(true);
     });
     el.querySelector('.btn-export').addEventListener('click', exportMarkdown);
+    applySettingsToSidebar(el);
     return el;
+  }
+
+  function getStorageSync() {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.sync) return null;
+    return chrome.storage.sync;
+  }
+
+  function normalizeSettings(nextSettings) {
+    return {
+      sidebarMode: nextSettings.sidebarMode === 'tab' ? 'tab' : 'expanded',
+      sidebarPosition: nextSettings.sidebarPosition === 'left' ? 'left' : 'right',
+      appearance: ['light', 'dark', 'system'].includes(nextSettings.appearance)
+        ? nextSettings.appearance
+        : 'system',
+    };
+  }
+
+  function applySettingsToSidebar(sidebar = document.getElementById(SIDEBAR_ID)) {
+    if (!sidebar) return;
+
+    sidebar.classList.toggle('cgpt-mode-tab', settings.sidebarMode === 'tab');
+    sidebar.classList.toggle('cgpt-mode-expanded', settings.sidebarMode === 'expanded');
+    sidebar.classList.toggle('cgpt-position-left', settings.sidebarPosition === 'left');
+    sidebar.classList.toggle('cgpt-position-right', settings.sidebarPosition === 'right');
+    sidebar.classList.toggle('cgpt-theme-light', settings.appearance === 'light');
+    sidebar.classList.toggle('cgpt-theme-dark', settings.appearance === 'dark');
+    sidebar.classList.toggle('cgpt-theme-system', settings.appearance === 'system');
+  }
+
+  function loadSettings(callback) {
+    const storage = getStorageSync();
+    if (!storage) {
+      settings = normalizeSettings(DEFAULT_SETTINGS);
+      callback();
+      return;
+    }
+
+    storage.get(DEFAULT_SETTINGS, (storedSettings) => {
+      settings = normalizeSettings(storedSettings || DEFAULT_SETTINGS);
+      applySettingsToSidebar();
+      callback();
+    });
+  }
+
+  function watchSettings() {
+    if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.onChanged) return;
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'sync') return;
+
+      const nextSettings = { ...settings };
+      Object.keys(DEFAULT_SETTINGS).forEach((key) => {
+        if (changes[key]) nextSettings[key] = changes[key].newValue;
+      });
+
+      settings = normalizeSettings(nextSettings);
+      applySettingsToSidebar();
+    });
   }
 
   function getChatContainer() {
@@ -203,8 +272,9 @@
 
   function boot(fromUrlChange=false) {
     ensureSidebar();
-    rebuild(true);
+    loadSettings(() => rebuild(true));
     if (!fromUrlChange) {
+      watchSettings();
       observeMutations();
       watchUrlChanges();
       startPolling();
