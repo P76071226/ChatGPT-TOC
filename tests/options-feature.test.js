@@ -46,6 +46,7 @@ assert.match(contentJs, /CACHE_MAX_AGE_MS/, 'cache should expire old conversatio
 assert.match(contentJs, /getConversationKey/, 'content script should scope cache by conversation');
 assert.match(contentJs, /mergeCachedItems/, 'content script should merge live DOM items into cache');
 assert.match(contentJs, /getNodeSignature/, 'content script should detect lazy-loaded content changes even when DOM count is unchanged');
+assert.match(contentJs, /getScrollDirection/, 'content script should use scroll direction when ordering newly loaded lazy content');
 
 const stylesCss = read('styles.css');
 assert.match(stylesCss, /cgpt-position-left/, 'styles should support left sidebar position');

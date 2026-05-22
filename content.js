@@ -21,6 +21,7 @@
   let settings = { ...DEFAULT_SETTINGS };
   let conversationCache = {};
   let activeConversationKey = '';
+  let lastScrollOffset = null;
 
   function log(...args) {
     try { console.debug('[ChatGPT-TOC]', ...args); } catch (e) {}
@@ -188,29 +189,83 @@
     return item.messageId || item.id || item.label;
   }
 
-  function mergeCachedItems(liveItems) {
+  function normalizeCachedItem(item, now) {
+    return {
+      ...item,
+      firstSeenAt: item.firstSeenAt || now,
+      lastSeenAt: now,
+    };
+  }
+
+  function insertItemsAt(result, index, items) {
+    if (!items.length) return result;
+    result.splice(index, 0, ...items);
+    return result;
+  }
+
+  function trimCachedItems(items, direction) {
+    if (items.length <= MAX_ITEMS_PER_CONVERSATION) return items;
+    return direction === 'up'
+      ? items.slice(0, MAX_ITEMS_PER_CONVERSATION)
+      : items.slice(-MAX_ITEMS_PER_CONVERSATION);
+  }
+
+  function mergeCachedItems(liveItems, direction = 'unknown') {
     const now = Date.now();
     const existingItems = getCachedItems();
-    const itemMap = new Map();
+    const existingKeySet = new Set(existingItems.map(getItemCacheKey));
+    const liveItemMap = new Map();
 
-    existingItems.forEach((item) => {
-      itemMap.set(getItemCacheKey(item), item);
+    liveItems.forEach((item) => {
+      liveItemMap.set(getItemCacheKey(item), normalizeCachedItem(item, now));
     });
+
+    if (!existingItems.length) {
+      const items = trimCachedItems(liveItems.map((item) => normalizeCachedItem(item, now)), direction);
+      conversationCache[activeConversationKey] = { items, lastSeenAt: now };
+      persistConversationCache();
+      return items;
+    }
+
+    let result = existingItems.map((item) => {
+      const liveItem = liveItemMap.get(getItemCacheKey(item));
+      return liveItem ? { ...item, ...liveItem, firstSeenAt: item.firstSeenAt || liveItem.firstSeenAt } : item;
+    });
+
+    let pendingNewItems = [];
+    let lastKnownKey = null;
+    let sawKnownItem = false;
 
     liveItems.forEach((item) => {
       const cacheKey = getItemCacheKey(item);
-      const existing = itemMap.get(cacheKey);
-      itemMap.set(cacheKey, {
-        ...existing,
-        ...item,
-        firstSeenAt: existing ? existing.firstSeenAt : now,
-        lastSeenAt: now,
-      });
+      const cachedItem = normalizeCachedItem(item, now);
+
+      if (existingKeySet.has(cacheKey)) {
+        if (pendingNewItems.length) {
+          const anchorIndex = result.findIndex((candidate) => getItemCacheKey(candidate) === cacheKey);
+          result = insertItemsAt(result, anchorIndex >= 0 ? anchorIndex : result.length, pendingNewItems);
+          pendingNewItems = [];
+        }
+        sawKnownItem = true;
+        lastKnownKey = cacheKey;
+        return;
+      }
+
+      pendingNewItems.push(cachedItem);
     });
 
-    const items = Array.from(itemMap.values())
-      .sort((a, b) => (a.firstSeenAt || 0) - (b.firstSeenAt || 0))
-      .slice(-MAX_ITEMS_PER_CONVERSATION);
+    if (pendingNewItems.length) {
+      if (sawKnownItem && lastKnownKey) {
+        const anchorIndex = result.findIndex((candidate) => getItemCacheKey(candidate) === lastKnownKey);
+        result = insertItemsAt(result, anchorIndex >= 0 ? anchorIndex + 1 : result.length, pendingNewItems);
+      } else if (direction === 'up') {
+        result = [...pendingNewItems, ...result];
+      } else {
+        result = [...result, ...pendingNewItems];
+      }
+    }
+
+    const items = trimCachedItems(result, direction);
 
     conversationCache[activeConversationKey] = {
       items,
@@ -265,6 +320,24 @@
       const text = (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 80);
       return `${msgId}:${text}`;
     }).join('|');
+  }
+
+  function getScrollOffset() {
+    const container = getChatContainer();
+    return container === window ? window.scrollY : container.scrollTop;
+  }
+
+  function getScrollDirection() {
+    const currentOffset = getScrollOffset();
+    const direction = lastScrollOffset === null
+      ? 'unknown'
+      : currentOffset < lastScrollOffset
+        ? 'up'
+        : currentOffset > lastScrollOffset
+          ? 'down'
+          : 'stable';
+    lastScrollOffset = currentOffset;
+    return direction;
   }
 
   function buildList(items) {
@@ -326,9 +399,10 @@
       return; // 無變化時不重建
     }
     lastSignature = signature;
+    const scrollDirection = getScrollDirection();
     const liveItems = nodes.map(normalizeItem);
-    const items = mergeCachedItems(liveItems);
-    log('Rebuild list. DOM count =', nodes.length, 'Cached count =', items.length);
+    const items = mergeCachedItems(liveItems, scrollDirection);
+    log('Rebuild list. DOM count =', nodes.length, 'Cached count =', items.length, 'Direction =', scrollDirection);
     buildList(items);
   }
 
