@@ -51,6 +51,8 @@ assert.match(contentJs, /getSearchDirectionForItem/, 'content script should sear
 assert.match(contentJs, /directions\[directionIndex\] === 'up'/, 'auto-scroll search should support upward scrolling');
 assert.match(contentJs, /querySelector\('\[data-message-id\]'\)/, 'content script should find message ids inside user message containers');
 assert.match(contentJs, /resetConversationView/, 'content script should clear stale sidebar state when switching conversations');
+assert.match(contentJs, /ignoreCurrentDomSnapshot/, 'content script should avoid indexing stale DOM immediately after route changes');
+assert.match(contentJs, /handleConversationChanged/, 'content script should load the new conversation cache without merging old DOM');
 assert.match(contentJs, /findTargetNodeForItem/, 'content script should find cached targets by message id or label fallback');
 assert.match(contentJs, /getOppositeDirection/, 'auto-scroll search should retry in the opposite direction');
 assert.match(contentJs, /getScrollableChatContainer/, 'content script should discover the actual scroll container');

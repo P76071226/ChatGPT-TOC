@@ -22,6 +22,7 @@
   let conversationCache = {};
   let activeConversationKey = '';
   let lastScrollOffset = null;
+  let routeSettleTimer = null;
 
   function log(...args) {
     try { console.debug('[ChatGPT-TOC]', ...args); } catch (e) {}
@@ -65,6 +66,22 @@
     lastScrollOffset = null;
     activeConversationKey = getConversationKey();
     buildList([]);
+  }
+
+  function ignoreCurrentDomSnapshot() {
+    lastSignature = getNodeSignature(queryUserMessages());
+    lastScrollOffset = getScrollOffset();
+  }
+
+  function handleConversationChanged() {
+    resetConversationView();
+    if (routeSettleTimer) clearTimeout(routeSettleTimer);
+
+    loadConversationCache(() => {
+      buildList(getCachedItems());
+      ignoreCurrentDomSnapshot();
+      routeSettleTimer = setTimeout(() => rebuild(false), 900);
+    });
   }
 
   function getStorageSync() {
@@ -472,8 +489,7 @@
   function rebuild(force=false) {
     const currentConversationKey = getConversationKey();
     if (activeConversationKey && currentConversationKey !== activeConversationKey) {
-      resetConversationView();
-      loadConversationCache(() => rebuild(true));
+      handleConversationChanged();
       return;
     }
 
@@ -586,9 +602,12 @@
 
   function boot(fromUrlChange=false) {
     ensureSidebar();
-    if (fromUrlChange) resetConversationView();
     loadSettings(() => {
-      loadConversationCache(() => rebuild(true));
+      if (fromUrlChange) {
+        handleConversationChanged();
+      } else {
+        loadConversationCache(() => rebuild(true));
+      }
     });
     if (!fromUrlChange) {
       watchSettings();
