@@ -48,8 +48,11 @@ assert.match(contentJs, /mergeCachedItems/, 'content script should merge live DO
 assert.match(contentJs, /getNodeSignature/, 'content script should detect lazy-loaded content changes even when DOM count is unchanged');
 assert.match(contentJs, /getScrollDirection/, 'content script should use scroll direction when ordering newly loaded lazy content');
 assert.match(contentJs, /getSearchDirectionForItem/, 'content script should search upward when cached target is above current DOM window');
-assert.match(contentJs, /searchDirection === 'up'/, 'auto-scroll search should support upward scrolling');
+assert.match(contentJs, /directions\[directionIndex\] === 'up'/, 'auto-scroll search should support upward scrolling');
 assert.match(contentJs, /querySelector\('\[data-message-id\]'\)/, 'content script should find message ids inside user message containers');
+assert.match(contentJs, /resetConversationView/, 'content script should clear stale sidebar state when switching conversations');
+assert.match(contentJs, /findTargetNodeForItem/, 'content script should find cached targets by message id or label fallback');
+assert.match(contentJs, /getOppositeDirection/, 'auto-scroll search should retry in the opposite direction');
 
 const stylesCss = read('styles.css');
 assert.match(stylesCss, /cgpt-position-left/, 'styles should support left sidebar position');

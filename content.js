@@ -60,6 +60,13 @@
     return el;
   }
 
+  function resetConversationView() {
+    lastSignature = '';
+    lastScrollOffset = null;
+    activeConversationKey = getConversationKey();
+    buildList([]);
+  }
+
   function getStorageSync() {
     if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.sync) return null;
     return chrome.storage.sync;
@@ -325,6 +332,35 @@
     }).join('|');
   }
 
+  function getNormalizedText(value) {
+    return (value || '').replace(/\\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function getLabelSearchText(item) {
+    return getNormalizedText((item.label || '').replace(/…$/, ''));
+  }
+
+  function getUserContainerForNode(node) {
+    return node.closest('[data-message-author-role="user"], [data-testid="user-message"], .text-base[data-role="user"], div[data-testid="conversation-turn"][data-is-user="true"]');
+  }
+
+  function findTargetNodeForItem(item) {
+    if (item.messageId) {
+      const messageNode = document.querySelector(`[data-message-id="${CSS.escape(item.messageId)}"]`);
+      const userContainer = messageNode ? getUserContainerForNode(messageNode) : null;
+      if (userContainer) return userContainer;
+    }
+
+    const labelText = getLabelSearchText(item);
+    if (!labelText) return null;
+
+    return queryUserMessages().find((node) => {
+      const text = getNormalizedText(node.innerText || node.textContent || '');
+      const textPrefix = text.slice(0, 80);
+      return text && (text.includes(labelText) || (textPrefix && labelText.includes(textPrefix)));
+    }) || null;
+  }
+
   function getScrollOffset() {
     const container = getChatContainer();
     return container === window ? window.scrollY : container.scrollTop;
@@ -395,11 +431,7 @@
           setTimeout(() => nodeNow.classList.remove('cgpt-highlight'), 1500);
         } else {
           // 後備：用 messageId 自動搜尋（若存在）
-          if (item.messageId) {
-            autoScrollToMessageId(item.messageId, getSearchDirectionForItem(item));
-          } else {
-            alert('找不到對應元素，請按 ↻ 重新掃描。');
-          }
+          autoScrollToItem(item, getSearchDirectionForItem(item));
         }
       });
       list.appendChild(btn);
@@ -417,6 +449,13 @@
   }
 
   function rebuild(force=false) {
+    const currentConversationKey = getConversationKey();
+    if (activeConversationKey && currentConversationKey !== activeConversationKey) {
+      resetConversationView();
+      loadConversationCache(() => rebuild(true));
+      return;
+    }
+
     const nodes = queryUserMessages();
     const signature = getNodeSignature(nodes);
     if (!force && signature === lastSignature) {
@@ -459,45 +498,74 @@
     pollTimer = setInterval(() => rebuild(), 1500);
   }
 
-  // Auto scroll search by data-message-id
-  function autoScrollToMessageId(targetId, searchDirection = 'down') {
+  function getOppositeDirection(direction) {
+    return direction === 'up' ? 'down' : 'up';
+  }
+
+  function highlightNode(node) {
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    node.classList.add('cgpt-highlight');
+    setTimeout(() => node.classList.remove('cgpt-highlight'), 1500);
+  }
+
+  function autoScrollToItem(item, searchDirection = 'down') {
     const container = document.querySelector(CHAT_SELECTOR) || window;
     const isWindow = (container === window);
-    const getEl = () => document.querySelector(`[data-message-id="${CSS.escape(targetId)}"]`);
+    const directions = [searchDirection, getOppositeDirection(searchDirection)];
 
     let found = false;
+    let directionIndex = 0;
+    let directionStartedAt = Date.now();
+    let timer = null;
     const root = isWindow ? document.body : container;
-    const observer = new MutationObserver(() => {
-      const n = getEl();
+
+    const finishIfFound = () => {
+      const n = findTargetNodeForItem(item);
       if (n) {
         found = true;
-        n.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        n.classList.add('cgpt-highlight');
-        setTimeout(() => n.classList.remove('cgpt-highlight'), 1500);
+        highlightNode(n);
         observer.disconnect();
-        clearInterval(timer);
+        if (timer) clearInterval(timer);
       }
-    });
+      return found;
+    };
+
+    const observer = new MutationObserver(finishIfFound);
     observer.observe(root, { childList: true, subtree: true });
 
-    const timer = setInterval(() => {
+    if (finishIfFound()) return;
+
+    timer = setInterval(() => {
       if (found) return;
-      const step = searchDirection === 'up' ? -400 : 400;
+      if (finishIfFound()) return;
+
+      const elapsed = Date.now() - directionStartedAt;
+      if (elapsed > 6000) {
+        if (directionIndex < directions.length - 1) {
+          directionIndex += 1;
+          directionStartedAt = Date.now();
+        } else {
+          observer.disconnect();
+          clearInterval(timer);
+          alert('找不到目標訊息（請試著手動捲一下或按 ↻ 重新掃描）');
+          return;
+        }
+      }
+
+      const step = directions[directionIndex] === 'up' ? -400 : 400;
       if (isWindow) window.scrollBy({ top: step, behavior: 'auto' });
       else container.scrollBy({ top: step, behavior: 'auto' });
     }, 200);
+  }
 
-    setTimeout(() => {
-      if (!found) {
-        observer.disconnect();
-        clearInterval(timer);
-        alert('找不到目標訊息（請試著手動捲一下或按 ↻ 重新掃描）');
-      }
-    }, 6000);
+  // Auto scroll search by data-message-id
+  function autoScrollToMessageId(targetId, searchDirection = 'down') {
+    autoScrollToItem({ messageId: targetId, label: '' }, searchDirection);
   }
 
   function boot(fromUrlChange=false) {
     ensureSidebar();
+    if (fromUrlChange) resetConversationView();
     loadSettings(() => {
       loadConversationCache(() => rebuild(true));
     });
