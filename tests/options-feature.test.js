@@ -53,6 +53,8 @@ assert.match(contentJs, /querySelector\('\[data-message-id\]'\)/, 'content scrip
 assert.match(contentJs, /resetConversationView/, 'content script should clear stale sidebar state when switching conversations');
 assert.match(contentJs, /findTargetNodeForItem/, 'content script should find cached targets by message id or label fallback');
 assert.match(contentJs, /getOppositeDirection/, 'auto-scroll search should retry in the opposite direction');
+assert.match(contentJs, /getScrollableChatContainer/, 'content script should discover the actual scroll container');
+assert.doesNotMatch(contentJs, /document\.getElementById\(item\.id\)/, 'cached item clicks should not trust unstable generated DOM ids');
 
 const stylesCss = read('styles.css');
 assert.match(stylesCss, /cgpt-position-left/, 'styles should support left sidebar position');

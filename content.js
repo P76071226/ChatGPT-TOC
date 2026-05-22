@@ -143,8 +143,35 @@
     });
   }
 
+  function getScrollableChatContainer() {
+    const preferred = document.querySelector(CHAT_SELECTOR);
+    if (preferred && preferred.scrollHeight > preferred.clientHeight) return preferred;
+
+    const userMessage = queryUserMessages()[0];
+    if (userMessage) {
+      let node = userMessage.parentElement;
+      while (node && node !== document.body) {
+        const style = window.getComputedStyle(node);
+        const canScroll = /(auto|scroll)/.test(`${style.overflowY} ${style.overflow}`);
+        if (canScroll && node.scrollHeight > node.clientHeight) return node;
+        node = node.parentElement;
+      }
+    }
+
+    const scrollables = Array.from(document.querySelectorAll('main, [role="main"], div'))
+      .filter((node) => {
+        const style = window.getComputedStyle(node);
+        return /(auto|scroll)/.test(`${style.overflowY} ${style.overflow}`)
+          && node.scrollHeight > node.clientHeight
+          && node.clientHeight > window.innerHeight * 0.35;
+      })
+      .sort((a, b) => (b.clientHeight * b.clientWidth) - (a.clientHeight * a.clientWidth));
+
+    return scrollables[0] || window;
+  }
+
   function getChatContainer() {
-    return document.querySelector(CHAT_SELECTOR) || window;
+    return getScrollableChatContainer();
   }
 
   function getConversationKey() {
@@ -420,15 +447,9 @@
       btn.setAttribute('role', 'listitem');
       btn.textContent = `${i + 1}. ${item.label}`;
       btn.addEventListener('click', () => {
-        // 最小可用：直接使用 DOM id 重新查詢當前節點
-        const candidateNode = document.getElementById(item.id);
-        const nodeNow = candidateNode && (!item.messageId || candidateNode.getAttribute('data-message-id') === item.messageId)
-          ? candidateNode
-          : null;
+        const nodeNow = findTargetNodeForItem(item);
         if (nodeNow) {
-          nodeNow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          nodeNow.classList.add('cgpt-highlight');
-          setTimeout(() => nodeNow.classList.remove('cgpt-highlight'), 1500);
+          highlightNode(nodeNow);
         } else {
           // 後備：用 messageId 自動搜尋（若存在）
           autoScrollToItem(item, getSearchDirectionForItem(item));
@@ -509,7 +530,7 @@
   }
 
   function autoScrollToItem(item, searchDirection = 'down') {
-    const container = document.querySelector(CHAT_SELECTOR) || window;
+    const container = getChatContainer();
     const isWindow = (container === window);
     const directions = [searchDirection, getOppositeDirection(searchDirection)];
 
