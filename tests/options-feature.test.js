@@ -47,6 +47,9 @@ assert.match(contentJs, /getConversationKey/, 'content script should scope cache
 assert.match(contentJs, /mergeCachedItems/, 'content script should merge live DOM items into cache');
 assert.match(contentJs, /getNodeSignature/, 'content script should detect lazy-loaded content changes even when DOM count is unchanged');
 assert.match(contentJs, /getScrollDirection/, 'content script should use scroll direction when ordering newly loaded lazy content');
+assert.match(contentJs, /getSearchDirectionForItem/, 'content script should search upward when cached target is above current DOM window');
+assert.match(contentJs, /searchDirection === 'up'/, 'auto-scroll search should support upward scrolling');
+assert.match(contentJs, /querySelector\('\[data-message-id\]'\)/, 'content script should find message ids inside user message containers');
 
 const stylesCss = read('styles.css');
 assert.match(stylesCss, /cgpt-position-left/, 'styles should support left sidebar position');

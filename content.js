@@ -303,7 +303,10 @@
     const oneLine = raw.replace(/\\s+/g, ' ').trim();
     const label = oneLine.length > 80 ? oneLine.slice(0, 77) + '…' : oneLine;
 
-    const msgId = container.getAttribute('data-message-id') || '';
+    const messageNode = container.matches('[data-message-id]')
+      ? container
+      : container.querySelector('[data-message-id]');
+    const msgId = messageNode ? messageNode.getAttribute('data-message-id') || '' : '';
 
     return {
       id: container.id,
@@ -340,6 +343,27 @@
     return direction;
   }
 
+  function getSearchDirectionForItem(item) {
+    const cachedItems = getCachedItems();
+    const targetIndex = cachedItems.findIndex((candidate) => getItemCacheKey(candidate) === getItemCacheKey(item));
+    if (targetIndex < 0) return 'down';
+
+    const liveKeys = queryUserMessages()
+      .map((node, index) => getItemCacheKey(normalizeItem(node, index)))
+      .filter(Boolean);
+    const liveIndexes = liveKeys
+      .map((key) => cachedItems.findIndex((candidate) => getItemCacheKey(candidate) === key))
+      .filter((index) => index >= 0);
+
+    if (!liveIndexes.length) return 'down';
+
+    const firstVisibleIndex = Math.min(...liveIndexes);
+    const lastVisibleIndex = Math.max(...liveIndexes);
+    if (targetIndex < firstVisibleIndex) return 'up';
+    if (targetIndex > lastVisibleIndex) return 'down';
+    return 'down';
+  }
+
   function buildList(items) {
     const sidebar = ensureSidebar();
     const list = sidebar.querySelector('.cgpt-list');
@@ -372,7 +396,7 @@
         } else {
           // 後備：用 messageId 自動搜尋（若存在）
           if (item.messageId) {
-            autoScrollToMessageId(item.messageId);
+            autoScrollToMessageId(item.messageId, getSearchDirectionForItem(item));
           } else {
             alert('找不到對應元素，請按 ↻ 重新掃描。');
           }
@@ -436,7 +460,7 @@
   }
 
   // Auto scroll search by data-message-id
-  function autoScrollToMessageId(targetId) {
+  function autoScrollToMessageId(targetId, searchDirection = 'down') {
     const container = document.querySelector(CHAT_SELECTOR) || window;
     const isWindow = (container === window);
     const getEl = () => document.querySelector(`[data-message-id="${CSS.escape(targetId)}"]`);
@@ -458,7 +482,7 @@
 
     const timer = setInterval(() => {
       if (found) return;
-      const step = 400;
+      const step = searchDirection === 'up' ? -400 : 400;
       if (isWindow) window.scrollBy({ top: step, behavior: 'auto' });
       else container.scrollBy({ top: step, behavior: 'auto' });
     }, 200);
